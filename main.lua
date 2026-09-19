@@ -140,7 +140,6 @@ function PinLock:showLockScreen()
     local widget
     local can_suspend = Device:canSuspend()
     widget = PinLockWidget:new{
-        plugin_path = self.path,
         pin_length = self:getPinLength(),
         -- There is no legitimate way to dismiss the actual lock screen
         -- without the correct PIN: no close (x) icon at all, and the
@@ -198,7 +197,6 @@ function PinLock:promptSetPin()
     showConfirmStep = function()
         local widget
         widget = PinLockWidget:new{
-            plugin_path = self.path,
             status_text = _("Confirm new PIN"),
             pin_length = pin_length,
             right_icon_callback = function() UIManager:close(widget) end,
@@ -222,7 +220,6 @@ function PinLock:promptSetPin()
     showFirstStep = function()
         local widget
         widget = PinLockWidget:new{
-            plugin_path = self.path,
             status_text = _("Enter new PIN"),
             pin_length = pin_length,
             right_icon_callback = function() UIManager:close(widget) end,
@@ -243,7 +240,7 @@ end
 function PinLock:addToMainMenu(menu_items)
     menu_items.pinlock = {
         text = _("PinLock"),
-        sorting_hint = "more_tools",
+        sorting_hint = "screen",
         sub_item_table = {
             {
                 text_func = function()
