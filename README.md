@@ -1,11 +1,9 @@
 # PinLock
 
 A PIN-code lock screen plugin for [KOReader](https://github.com/koreader/koreader), styled after
-the numeric PIN prompt used on stock Kobo firmware: a row of dots showing how many digits you've
-typed and a touch-friendly keypad with faint dividers — no title text at all. The pad itself is
+the numeric PIN prompt used on stock Kobo firmware: the pad itself is
 narrower than the screen and only as tall as it needs to be, centered with room to spare on either
-side, over a plain full-screen background — not stretched edge to edge. Small back/close icons (when
-shown) float in the very top corners of the screen, clear of the pad itself.
+side, over a plain full-screen background.
 
 PinLock can require your PIN:
 
@@ -22,15 +20,8 @@ shows a close (×) button and a one-line hint since it isn't guarding anything y
 
 ![PinLock screenshot](screenshot.png)
 
-In dark/Night Mode, the plain white background and black keypad shown here are simply inverted by
-KOReader itself, the same way every other KOReader screen is — the plugin doesn't do anything
-Night-Mode-specific.
-
 The keypad digits use a small bundled font (a subset of **Roboto**, Google's own open-source
 typeface) rather than KOReader's default UI font, for a cleaner, more "brand-like" numeral shape.
-See [`pinlock.koplugin/fonts/README.md`](pinlock.koplugin/fonts/README.md) for why Roboto specifically
-(in short: Google Sans/Product Sans is proprietary and can't legally be redistributed) and how the
-~2 KB subset was built.
 
 ## Installing
 
@@ -77,24 +68,6 @@ one — turn on whichever one (or both) you actually want.
 PinLock registers a "Lock now (PinLock)" action with KOReader's gesture manager (Dispatcher), so you
 can assign it to a tap zone, a swipe, a multiswipe, etc. from **☰ → Settings → Taps and gestures**,
 the same way you'd bind any other action.
-
-## How the lock screen behaves
-
-The lock screen has no way to bypass it except entering the correct PIN:
-
-- There is **no close (×) button** on the lock screen itself — only the "set/confirm new PIN" screens
-  (reached from the menu, not from the lock screen) have one, since canceling those isn't a security
-  issue.
-- The **back chevron**, shown only on devices that support suspending, puts the device back to sleep
-  rather than dismissing the lock — functionally the same as pressing the power button. On devices
-  that can't suspend, there's no back icon at all.
-- The physical Back/Home key (on devices that have one) is swallowed rather than closing the screen.
-- After 5 wrong attempts, the keypad locks itself out for 30 seconds, with a visible countdown, before
-  you can try again.
-
-This is intentionally a small, cosmetic deviation from the Kobo screen it's styled after (which is
-guarding a settings menu, not the whole device, so a close button there makes sense) — for an actual
-device lock, giving people a way to dismiss it without the PIN would defeat the point.
 
 ## Security model — please read this
 
