@@ -84,10 +84,6 @@ function Dot:paintTo(bb, x, y)
 end
 
 local PinLockWidget = InputContainer:extend{
-    -- Absolute path to the plugin's own .koplugin directory (main.lua's
-    -- self.path), used to locate the bundled digit font. If nil, the
-    -- default tfont is used instead.
-    plugin_path = nil,
     -- How many digits make up a full PIN.
     pin_length = 4,
     -- Optional small status line shown above the dots (e.g. a lockout
@@ -217,10 +213,10 @@ function PinLockWidget:buildLayout()
     local row_h = Screen:scaleBySize(56)
     local col_w = math.floor(keypad_width / 3)
 
-    -- Digit glyphs use a bundled subset of Roboto Regular when the widget
-    -- was given the plugin's own directory (see main.lua); falls back to
-    -- the default tfont otherwise, so this file stays usable standalone.
-    local digit_font_face = self.plugin_path and (self.plugin_path .. "/fonts/PinLockDigits-Regular.ttf") or "tfont"
+    -- Plain KOReader default content font (NotoSans Regular) -- no serifs,
+    -- not bold, and always bundled, so there's nothing extra to ship and
+    -- nothing that can fail to load.
+    local digit_font_face = "cfont"
 
     local function keyButton(label, width, height)
         return Button:new{
