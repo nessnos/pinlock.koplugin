@@ -20,8 +20,8 @@ shows a close (×) button and a one-line hint since it isn't guarding anything y
 
 ![PinLock screenshot](screenshot.png)
 
-The keypad digits use a small bundled font (a subset of **Roboto**, Google's own open-source
-typeface) rather than KOReader's default UI font, for a cleaner, more "brand-like" numeral shape.
+The keypad digits use KOReader's own default content font by default, but you can pick any other font already on your device
+instead, from the plugin's own menu (see **Keypad font** below).
 
 ## Installing
 
@@ -56,6 +56,7 @@ it's the same plugin, the same PIN, either way).
   no point locking the device with no PIN to unlock it).
 - **PIN length: N digits** — 4 to 8 digits. Changing this clears your current PIN, since a PIN's
   length is baked into how it's checked; you'll be asked to set a new one at the new length.
+- **Keypad font** — pick which font the digits are drawn in, from every font already on your device
 - **Lock on startup** — require the PIN once, when KOReader launches.
 - **Lock on wake from sleep** — require the PIN every time the device wakes up from suspend.
 - **Lock now** — trigger the lock screen immediately, useful for testing or for binding to a gesture.
