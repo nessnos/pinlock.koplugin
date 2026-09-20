@@ -84,6 +84,11 @@ function Dot:paintTo(bb, x, y)
 end
 
 local PinLockWidget = InputContainer:extend{
+    -- Absolute path to a font file to use for the keypad digits, e.g. one
+    -- of the device's own fonts, picked by the user in the plugin's
+    -- settings (see main.lua). If nil, or if it fails to load, the
+    -- default "cfont" (KOReader's own UI font) is used instead.
+    font_path = nil,
     -- How many digits make up a full PIN.
     pin_length = 4,
     -- Optional small status line shown above the dots (e.g. a lockout
@@ -122,6 +127,18 @@ function PinLockWidget:init()
         -- down to whatever is underneath us. If we do have a back action
         -- (e.g. "suspend the device"), run that instead.
         self.key_events.Close = { { Device.input.group.Back } }
+    end
+
+    -- Resolve the digit font once, up front. Font:getFace() returns nil
+    -- (rather than erroring) if a font can't be loaded, but widgets like
+    -- Button/TextWidget don't check for that and will hard-crash on a nil
+    -- face -- so we test it ourselves here and fall back to the default
+    -- "cfont", meaning a missing, removed, or unreadable font (e.g. one
+    -- picked from an SD card that's since been taken out) can never take
+    -- down the lock screen.
+    self.digit_font_face = "cfont"
+    if self.font_path and Font:getFace(self.font_path, 23) then
+        self.digit_font_face = self.font_path
     end
 
     self:buildLayout()
@@ -213,10 +230,9 @@ function PinLockWidget:buildLayout()
     local row_h = Screen:scaleBySize(56)
     local col_w = math.floor(keypad_width / 3)
 
-    -- Plain KOReader default content font (NotoSans Regular) -- no serifs,
-    -- not bold, and always bundled, so there's nothing extra to ship and
-    -- nothing that can fail to load.
-    local digit_font_face = "cfont"
+    -- Resolved once in init() -- either the user's chosen font (verified to
+    -- actually load) or the default "cfont"; see there.
+    local digit_font_face = self.digit_font_face
 
     local function keyButton(label, width, height)
         return Button:new{
