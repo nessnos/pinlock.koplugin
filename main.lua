@@ -15,6 +15,7 @@ local ConfirmBox = require("ui/widget/confirmbox")
 local DataStorage = require("datastorage")
 local Device = require("device")
 local Dispatcher = require("dispatcher") -- luacheck:ignore
+local FontList = require("fontlist")
 local InfoMessage = require("ui/widget/infomessage")
 local LuaSettings = require("luasettings")
 local PinLockWidget = require("pinlockwidget")
@@ -22,6 +23,7 @@ local SpinWidget = require("ui/widget/spinwidget")
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local sha2 = require("ffi/sha2")
+local util = require("util")
 local _ = require("gettext")
 local T = require("ffi/util").template
 
@@ -57,6 +59,10 @@ end
 
 function PinLock:getPinLength()
     return self.settings:readSetting("pin_length", MIN_PIN_LENGTH)
+end
+
+function PinLock:getKeypadFontPath()
+    return self.settings:readSetting("keypad_font_path")
 end
 
 function PinLock:generateSalt()
@@ -141,6 +147,7 @@ function PinLock:showLockScreen()
     local can_suspend = Device:canSuspend()
     widget = PinLockWidget:new{
         pin_length = self:getPinLength(),
+        font_path = self:getKeypadFontPath(),
         -- There is no legitimate way to dismiss the actual lock screen
         -- without the correct PIN: no close (x) icon at all, and the
         -- back chevron (if the device can suspend) just puts the device
@@ -199,6 +206,7 @@ function PinLock:promptSetPin()
         widget = PinLockWidget:new{
             status_text = _("Confirm new PIN"),
             pin_length = pin_length,
+            font_path = self:getKeypadFontPath(),
             right_icon_callback = function() UIManager:close(widget) end,
             on_complete = function(w, entered)
                 if entered == first_pin then
@@ -222,6 +230,7 @@ function PinLock:promptSetPin()
         widget = PinLockWidget:new{
             status_text = _("Enter new PIN"),
             pin_length = pin_length,
+            font_path = self:getKeypadFontPath(),
             right_icon_callback = function() UIManager:close(widget) end,
             on_complete = function(w, entered)
                 first_pin = entered
@@ -233,6 +242,55 @@ function PinLock:promptSetPin()
     end
 
     showFirstStep()
+end
+
+--- Keypad font picker -------------------------------------------------------
+
+-- A friendly display name for a font file: its own name if we can get one
+-- (e.g. "Noto Sans"), otherwise just its filename without the extension.
+local function getFontDisplayName(path)
+    local name = FontList:getLocalizedFontName(path, 0)
+    if name then return name end
+    local filename = select(2, util.splitFilePathName(path))
+    return (util.splitFileNameSuffix(filename))
+end
+
+-- Builds the "Keypad font" submenu: "Default" plus one radio entry per font
+-- installed on the device (bundled or in the user's own font folder). Built
+-- lazily (only when the submenu is actually opened), since scanning fonts
+-- can be slow the first time, and the result is cached by koreader itself
+-- (FontList) for reuse by its own "Change font" menu.
+function PinLock:genKeypadFontMenuItems()
+    local items = {}
+
+    table.insert(items, {
+        text = _("Default (KOReader UI font)"),
+        radio = true,
+        check_callback_closes_menu = true,
+        checked_func = function() return not self.settings:has("keypad_font_path") end,
+        callback = function()
+            self.settings:delSetting("keypad_font_path")
+            self.settings:flush()
+        end,
+        separator = true,
+    })
+
+    for _, path in ipairs(FontList:getFontList()) do
+        table.insert(items, {
+            text = getFontDisplayName(path),
+            radio = true,
+            check_callback_closes_menu = true,
+            checked_func = function()
+                return self:getKeypadFontPath() == path
+            end,
+            callback = function()
+                self.settings:saveSetting("keypad_font_path", path)
+                self.settings:flush()
+            end,
+        })
+    end
+
+    return items
 end
 
 --- Menu ---------------------------------------------------------------------
@@ -296,6 +354,14 @@ function PinLock:addToMainMenu(menu_items)
                     }
                     UIManager:show(spin)
                 end,
+            },
+            {
+                text_func = function()
+                    local path = self:getKeypadFontPath()
+                    return T(_("Keypad font: %1"), path and getFontDisplayName(path) or _("Default"))
+                end,
+                keep_menu_open = true,
+                sub_item_table_func = function() return self:genKeypadFontMenuItems() end,
                 separator = true,
             },
             {
