@@ -53,7 +53,10 @@ local InputContainer = require("ui/widget/container/inputcontainer")
 local LineWidget = require("ui/widget/linewidget")
 local OverlapGroup = require("ui/widget/overlapgroup")
 local Size = require("ui/size")
+local TextBoxWidget = require("ui/widget/textboxwidget")
+local TextViewer = require("ui/widget/textviewer")
 local TextWidget = require("ui/widget/textwidget")
+local TitleBar = require("ui/widget/titlebar")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local Widget = require("ui/widget/widget")
@@ -103,6 +106,14 @@ local PinLockWidget = InputContainer:extend{
     -- If set, a close (x) icon is shown and tapping it calls this
     -- function. If nil, no close icon is shown.
     right_icon_callback = nil,
+    -- If set (to a non-empty string), a small "device owner" button is
+    -- shown near the bottom of the screen; tapping it shows this text in a
+    -- popup, with a close (x) to dismiss it. Meant to let someone who
+    -- finds a lost, locked device see contact info without needing the
+    -- PIN. Optional: nil shows no button at all. Only meaningful on the
+    -- actual lock screen (main.lua doesn't set it for the set/confirm PIN
+    -- prompts).
+    device_owner_text = nil,
     -- Called as on_complete(self, entered_pin_string) once pin_length
     -- digits have been entered.
     on_complete = nil,
@@ -322,7 +333,118 @@ function PinLockWidget:buildLayout()
         })
     end
 
+    -- Optional small "device owner" button, floating near the bottom of
+    -- the screen (independent of the centered pad), for someone who finds
+    -- a lost, locked device to see contact info without needing the PIN.
+    if self.device_owner_text and self.device_owner_text ~= "" then
+        local device_owner_button = Button:new{
+            text = _("device owner"),
+            -- Match the keypad's own font choice, not the general UI font.
+            text_font_face = digit_font_face,
+            text_font_size = 11,
+            bordersize = Size.border.thin,
+            radius = 0, -- plain square corners, not rounded
+            margin = 0,
+            padding_h = Screen:scaleBySize(14),
+            padding_v = Screen:scaleBySize(8),
+            callback = function() self:showDeviceOwnerInfo() end,
+        }
+        -- Paint it black-on-white ourselves, rather than through Button's
+        -- own `background` field: that field is *also* what
+        -- Button:_doFeedbackHighlight() checks to decide whether the tap
+        -- highlight gets rounded corners -- which would make the pressed
+        -- state rounded even though the button itself is square. Poking
+        -- the colors directly here keeps radius == 0 throughout, so the
+        -- highlight instead uses a plain rectangle invert that matches
+        -- the button's actual (square) shape. Button also always renders
+        -- its label in black regardless of `background`, so the white
+        -- text needs the same direct treatment (mirroring the fgcolor +
+        -- optional :update() poke Button:enable()/disable() uses
+        -- internally). Since it's all still plain black-on-white under
+        -- the hood, koreader's Night Mode inverts it the same way it
+        -- inverts everything else -- white background, black text --
+        -- with no dark-mode-specific code of our own needed.
+        device_owner_button.frame.background = Blitbuffer.COLOR_BLACK
+        device_owner_button.label_widget.fgcolor = Blitbuffer.COLOR_WHITE
+        if device_owner_button.label_widget.update then
+            device_owner_button.label_widget:update()
+        end
+        local button_size = device_owner_button:getSize()
+        local bottom_margin = Screen:scaleBySize(16)
+        table.insert(overlay, device_owner_button)
+        device_owner_button.overlap_offset = {
+            math.floor((screen_w - button_size.w) / 2),
+            screen_h - button_size.h - bottom_margin,
+        }
+    end
+
     self[1] = OverlapGroup:new(overlay)
+end
+
+-- Shows the device owner's message in a small, dismissible popup (with the
+-- usual koreader close "x" in its title bar) -- sized to fit the message
+-- itself rather than the whole screen, with no button row underneath.
+function PinLockWidget:showDeviceOwnerInfo()
+    local screen_w, screen_h = Screen:getWidth(), Screen:getHeight()
+    local popup_width = math.floor(screen_w * 0.75)
+    local title = _("Device Owner")
+
+    -- TextViewer is built to fill most of the screen and to always show a
+    -- title bar plus a bottom row of buttons. We pass an empty
+    -- buttons_table to drop that button row (leaving just its hairline-thin
+    -- separator, a pixel or so), and compute our own `height` so the popup
+    -- is only as tall as the title bar plus the message actually needs --
+    -- mirroring TextViewer's own internal layout math so our estimate
+    -- matches what it will really draw.
+    local titlebar = TitleBar:new{
+        width = popup_width,
+        align = "left",
+        with_bottom_line = true,
+        title = title,
+        show_parent = self,
+    }
+    local titlebar_h = titlebar:getHeight()
+    titlebar:free()
+
+    local text_padding = Size.padding.large
+    local text_margin = Size.margin.small
+    -- Same width reduction ScrollTextWidget applies internally for its
+    -- scrollbar gutter, so our measurement matches the real thing.
+    local scroll_bar_width = Screen:scaleBySize(6)
+    local text_scroll_span = Screen:scaleBySize(12)
+    local content_width = popup_width - 2 * (text_padding + text_margin)
+        - scroll_bar_width - text_scroll_span
+
+    local measure = TextBoxWidget:new{
+        text = self.device_owner_text,
+        face = Font:getFace("x_smallinfofont", 20),
+        width = content_width,
+        for_measurement_only = true,
+    }
+    local content_h = measure:getSize().h
+    measure:free(true)
+
+    -- A little slack so a font-metric rounding difference can't force an
+    -- unwanted scrollbar, capped so we never exceed the screen itself.
+    local slack = Screen:scaleBySize(6)
+    local popup_height = math.min(
+        screen_h - Screen:scaleBySize(30),
+        titlebar_h + content_h + 2 * (text_padding + text_margin) + Size.line.medium + slack
+    )
+
+    UIManager:show(TextViewer:new{
+        title = title,
+        text = self.device_owner_text,
+        width = popup_width,
+        height = popup_height,
+        buttons_table = {},
+        -- Without this, TextViewer (not modal by default) would be stacked
+        -- *below* this lock screen widget (which is modal), since koreader
+        -- always keeps modal widgets on top of non-modal ones regardless of
+        -- show() order -- meaning the popup would be invisible and
+        -- untappable until the lock screen itself closes.
+        modal = true,
+    })
 end
 
 function PinLockWidget:refresh()
