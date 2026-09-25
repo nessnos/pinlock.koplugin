@@ -80,11 +80,8 @@ one — turn on whichever one (or both) you actually want.
 
 If turned on, a small, unobtrusive "device owner" button sits near the bottom of the lock screen —
 below the keypad, out of the way of normal use. Tapping it (no PIN needed) opens a small popup showing
-whatever text you wrote in **Device owner message**, with the usual × to close it. The idea is the same
-as the "if found, please contact..." sticker some people put on their devices, except it only shows
-up when someone actually needs it, instead of being visible all the time. It's entirely optional and
-off by default — nothing changes on your lock screen unless you both write a message and turn the
-button on.
+whatever text you wrote in **Device owner message**, with the usual × to close it. It's entirely optional and
+off by default.
 
 ### Binding "Lock now" to a gesture
 
