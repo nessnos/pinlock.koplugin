@@ -17,6 +17,7 @@ local Device = require("device")
 local Dispatcher = require("dispatcher") -- luacheck:ignore
 local FontList = require("fontlist")
 local InfoMessage = require("ui/widget/infomessage")
+local InputDialog = require("ui/widget/inputdialog")
 local LuaSettings = require("luasettings")
 local PinLockWidget = require("pinlockwidget")
 local SpinWidget = require("ui/widget/spinwidget")
@@ -63,6 +64,21 @@ end
 
 function PinLock:getKeypadFontPath()
     return self.settings:readSetting("keypad_font_path")
+end
+
+function PinLock:getDeviceOwnerText()
+    return self.settings:readSetting("device_owner_text")
+end
+
+function PinLock:hasDeviceOwnerText()
+    local text = self:getDeviceOwnerText()
+    return text ~= nil and text ~= ""
+end
+
+-- Whether the "device owner" button should actually be shown on the lock
+-- screen: the toggle is on, and there's some text to show if it's tapped.
+function PinLock:shouldShowDeviceOwnerButton()
+    return self.settings:isTrue("show_device_owner_button") and self:hasDeviceOwnerText()
 end
 
 function PinLock:generateSalt()
@@ -148,6 +164,7 @@ function PinLock:showLockScreen()
     widget = PinLockWidget:new{
         pin_length = self:getPinLength(),
         font_path = self:getKeypadFontPath(),
+        device_owner_text = self:shouldShowDeviceOwnerButton() and self:getDeviceOwnerText() or nil,
         -- There is no legitimate way to dismiss the actual lock screen
         -- without the correct PIN: no close (x) icon at all, and the
         -- back chevron (if the device can suspend) just puts the device
@@ -242,6 +259,51 @@ function PinLock:promptSetPin()
     end
 
     showFirstStep()
+end
+
+--- Device owner message -----------------------------------------------------
+
+-- Opens a text box to write/edit the message shown by the (optional)
+-- "device owner" button on the lock screen -- meant for something like a
+-- name, phone number, or email so a stranger who finds a lost, locked
+-- device can get it back to you without needing your PIN.
+function PinLock:promptDeviceOwnerText()
+    local dialog
+    dialog = InputDialog:new{
+        title = _("Device owner message"),
+        description = _("Shown to anyone who taps the 'device owner' button on the lock screen. For example, a name, phone number, or email address to help return a lost device."),
+        input = self:getDeviceOwnerText(),
+        input_hint = _("e.g. Jane Doe, jane@example.com"),
+        allow_newline = true,
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    id = "close",
+                    callback = function() UIManager:close(dialog) end,
+                },
+                {
+                    text = _("Save"),
+                    is_enter_default = true,
+                    callback = function()
+                        local text = dialog:getInputText()
+                        if text and text ~= "" then
+                            self.settings:saveSetting("device_owner_text", text)
+                        else
+                            -- Nothing to show: also switch the button off,
+                            -- rather than leaving it on with empty text.
+                            self.settings:delSetting("device_owner_text")
+                            self.settings:saveSetting("show_device_owner_button", false)
+                        end
+                        self.settings:flush()
+                        UIManager:close(dialog)
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
 end
 
 --- Keypad font picker -------------------------------------------------------
@@ -389,6 +451,22 @@ function PinLock:addToMainMenu(menu_items)
                 text = _("Lock now"),
                 enabled_func = function() return self:hasPinSet() end,
                 callback = function() self:showLockScreen() end,
+                separator = true,
+            },
+            {
+                text = _("Device owner message"),
+                keep_menu_open = true,
+                callback = function() self:promptDeviceOwnerText() end,
+            },
+            {
+                text = _("Show 'Device owner' button on lock screen"),
+                keep_menu_open = true,
+                checked_func = function() return self.settings:isTrue("show_device_owner_button") end,
+                enabled_func = function() return self:hasDeviceOwnerText() end,
+                callback = function()
+                    self.settings:toggle("show_device_owner_button")
+                    self.settings:flush()
+                end,
             },
         },
     }
